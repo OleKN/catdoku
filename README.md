@@ -70,16 +70,14 @@ relative path (`./`, `worker.js`, `sw.js`, `icons/…`), so the app works from t
 project sub-path `/catdoku/` without any base-URL configuration. `.nojekyll`
 disables Jekyll so the service worker and manifest are served verbatim.
 
-One-time setup in the GitHub web UI:
+Pages is already configured on this repo: **Settings → Pages → Build and
+deployment → Deploy from a branch → `main` / `/ (root)`**. Every `git push` to
+`main` redeploys automatically. If you fork this repo, do that one-time step
+yourself under <https://github.com/<your-user>/<your-repo>/settings/pages>.
 
-1. Open <https://github.com/OleKN/catdoku/settings/pages>.
-2. **Build and deployment → Source** → **Deploy from a branch**.
-3. Branch `main`, folder `/ (root)` → **Save**.
-4. Wait ~1 minute, then open <https://olekn.github.io/catdoku/>.
-
-After that, every push to `main` redeploys automatically. GitHub Pages serves
-over HTTPS, which is required for the service worker and for Add to Home Screen
-on iOS.
+GitHub Pages serves over HTTPS, which is required for the service worker and
+for Add to Home Screen on iOS. It also serves from the project sub-path
+`/catdoku/` — the relative paths above are what make that work.
 
 ```bash
 git add -A
