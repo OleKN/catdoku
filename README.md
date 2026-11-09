@@ -93,10 +93,23 @@ no path (a CNAME record can only hold a hostname). GitHub works out which repo
 to serve from the `CNAME` file. Add the custom domain in the repo settings
 *before* pointing DNS at it, as done here — that prevents subdomain takeover.
 
-Once DNS propagates (up to 24 h, usually minutes), GitHub automatically issues
-a free HTTPS certificate; **Enforce HTTPS** in Settings → Pages becomes
-available shortly after. HTTPS is required for the service worker and for Add
-to Home Screen on iOS.
+GitHub has issued the free HTTPS certificate and **Enforce HTTPS** is already
+enabled. HTTPS is required for the service worker and for Add to Home Screen on
+iOS. <https://olekn.github.io/catdoku/> now 301-redirects here.
+
+### Optional: domain verification (the TXT record)
+
+The TXT record you may remember is **domain verification**, not something the
+site needs in order to resolve. It is an account-level security feature: it
+proves you own `bausk.no` so no other GitHub account can publish a Pages site
+on it (or on `cat.bausk.no`) if this repo is ever removed. It is **optional** —
+the site works without it.
+
+To enable it: <https://github.com/settings/pages> → **Verified domains → Add a
+domain** → `bausk.no` → GitHub gives you a TXT record (name like
+`_github-pages-challenge-OleKN.bausk.no`, plus a code) → add that TXT at
+one.com → click **Verify**. **Leave the TXT record in place** afterwards;
+deleting it removes the protection.
 
 ```bash
 git add -A
