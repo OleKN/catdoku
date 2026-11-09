@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Mewdoku — a cosy cat logic puzzle</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="A calm, cat-themed logic puzzle. Give every cat its own territory: one per row, column and colour, with no touching — not even diagonally.">
+  <meta name="theme-color" content="#FFF7EC">
+  <meta name="format-detection" content="telephone=no">
+
+  <!-- iOS home-screen app -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Mewdoku">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+
+  <link rel="icon" type="image/svg+xml" href="icons/favicon.svg">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="ambient" aria-hidden="true">
+    <span class="orb orb--1"></span>
+    <span class="orb orb--2"></span>
+    <span class="orb orb--3"></span>
+    <span class="float-paw p1">🐾</span>
+    <span class="float-paw p2">🐾</span>
+    <span class="float-paw p3">🐾</span>
+    <span class="float-paw p4">🐾</span>
+  </div>
+
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">🐾</span>
+        <div class="brand-text">
+          <h1>Mewdoku</h1>
+          <p class="tagline">A little logic, a lot of cats</p>
+        </div>
+      </div>
+      <label class="difficulty">
+        <span class="sr-only">Board size</span>
+        <select id="difficulty" aria-label="Board size">
+          <option value="5">Kitten · 5×5</option>
+          <option value="6">Tabby · 6×6</option>
+          <option value="7">Prowler · 7×7</option>
+          <option value="8">Hunter · 8×8</option>
+          <option value="9">Panther · 9×9</option>
+          <option value="10">Legend · 10×10</option>
+          <option value="12">Estate · 12×12</option>
+          <option value="16">Kingdom · 16×16</option>
+          <option value="20">Empire · 20×20</option>
+          <option value="25">Cosmos · 25×25</option>
+        </select>
+      </label>
+    </header>
+
+    <section class="status" aria-label="Game status">
+      <div class="stat">
+        <span class="stat-label">Lives</span>
+        <div class="stat-value hearts" id="hearts" aria-live="polite"></div>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Cats</span>
+        <div class="stat-value" id="catCount">0 / 5</div>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Time</span>
+        <div class="stat-value" id="timer">00:00</div>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Best</span>
+        <div class="stat-value" id="best">—</div>
+      </div>
+    </section>
+
+    <main class="board-wrap">
+      <div class="board-scroll" id="boardScroll">
+        <div class="board-stage">
+          <div id="board" class="board" role="grid" aria-label="Mewdoku puzzle board"></div>
+          <div class="board-sheen" aria-hidden="true"></div>
+          <svg id="regionLines" class="region-lines" aria-hidden="true" preserveAspectRatio="none"></svg>
+        </div>
+      </div>
+      <button type="button" id="toolPan" class="pan-fab" aria-pressed="false"
+              aria-label="Pan around the board" title="Pan around the board" hidden>✋</button>
+      <div id="toast" class="toast" role="status" aria-live="polite"></div>
+      <div id="overlay" class="overlay" hidden></div>
+    </main>
+
+    <section class="controls">
+      <div class="tools" role="group" aria-label="Marking tool">
+        <button type="button" id="toolX" class="tool is-active" aria-pressed="true">
+          <span class="tool-glyph" aria-hidden="true">✕</span><span>Mark</span>
+        </button>
+        <button type="button" id="toolCat" class="tool" aria-pressed="false">
+          <span class="tool-glyph" aria-hidden="true">🐱</span><span>Cat</span>
+        </button>
+      </div>
+      <button type="button" id="autoMark" class="auto-toggle" aria-pressed="false"
+              aria-label="Auto-mark impossible squares when a cat is placed"
+              title="Auto-mark impossible squares when a cat is placed">
+        <span class="auto-glyph" aria-hidden="true">✕</span><span class="auto-text">Auto</span>
+      </button>
+      <button type="button" id="newPuzzle" class="btn btn--primary">New puzzle</button>
+    </section>
+
+    <footer class="help">
+      <p><strong>One cat</strong> in every row, column &amp; colour — and <strong>no touching</strong>, even diagonally.</p>
+      <p class="hint">Tap to mark ✕ · drag to paint · double-tap to place a cat ·
+        <button type="button" id="rulesBtn" class="link-btn">how to play</button>
+      </p>
+    </footer>
+  </div>
+
+  <noscript><p style="text-align:center;padding:2rem">Mewdoku needs JavaScript to build the puzzles.</p></noscript>
+  <script src="puzzle.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
