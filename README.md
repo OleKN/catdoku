@@ -63,21 +63,40 @@ the service worker and home-screen install both work there for testing.
 
 ## Hosting on GitHub Pages
 
-Live site: **<https://olekn.github.io/catdoku/>**
+Live site: **<https://cat.bausk.no/>**
+(<https://olekn.github.io/catdoku/> redirects to it.)
 
 There is no build step — the repository root *is* the site. Every asset uses a
-relative path (`./`, `worker.js`, `sw.js`, `icons/…`), so the app works from the
-project sub-path `/catdoku/` without any base-URL configuration. `.nojekyll`
-disables Jekyll so the service worker and manifest are served verbatim.
+relative path (`./`, `worker.js`, `sw.js`, `icons/…`), so the app works both at
+a domain root and at the project sub-path `/catdoku/` with no base-URL
+configuration. `.nojekyll` disables Jekyll so the service worker and manifest
+are served verbatim.
 
-Pages is already configured on this repo: **Settings → Pages → Build and
-deployment → Deploy from a branch → `main` / `/ (root)`**. Every `git push` to
-`main` redeploys automatically. If you fork this repo, do that one-time step
-yourself under <https://github.com/<your-user>/<your-repo>/settings/pages>.
+Pages is configured on this repo as **Settings → Pages → Build and deployment →
+Deploy from a branch → `main` / `/ (root)`**, with the custom domain
+`cat.bausk.no` stored in the root `CNAME` file. Every `git push` to `main`
+redeploys automatically. If you fork this repo, enable Pages and set your own
+custom domain under
+<https://github.com/<your-user>/<your-repo>/settings/pages>.
 
-GitHub Pages serves over HTTPS, which is required for the service worker and
-for Add to Home Screen on iOS. It also serves from the project sub-path
-`/catdoku/` — the relative paths above are what make that work.
+### DNS (one.com)
+
+`bausk.no` uses one.com nameservers. In the one.com DNS panel add exactly one
+record:
+
+| Type  | Host  | Points to         |
+| ----- | ----- | ----------------- |
+| CNAME | `cat` | `olekn.github.io` |
+
+The target is the **GitHub Pages default domain only** — no repository name and
+no path (a CNAME record can only hold a hostname). GitHub works out which repo
+to serve from the `CNAME` file. Add the custom domain in the repo settings
+*before* pointing DNS at it, as done here — that prevents subdomain takeover.
+
+Once DNS propagates (up to 24 h, usually minutes), GitHub automatically issues
+a free HTTPS certificate; **Enforce HTTPS** in Settings → Pages becomes
+available shortly after. HTTPS is required for the service worker and for Add
+to Home Screen on iOS.
 
 ```bash
 git add -A
@@ -91,7 +110,7 @@ git push origin main
 
 ## Installing on iOS
 
-1. Open **<https://olekn.github.io/catdoku/>** (or your own HTTPS host) in
+1. Open **<https://cat.bausk.no/>** (or your own HTTPS host) in
    **Safari** — Chrome/Firefox on iOS cannot add home-screen web apps. Add to
    Home Screen requires HTTPS, which Pages provides.
 3. Tap **Share → Add to Home Screen → Add**.
