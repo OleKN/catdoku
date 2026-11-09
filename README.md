@@ -4,6 +4,9 @@ A cosy, cat-themed logic puzzle that runs in the browser and installs on an
 iPhone home screen like a native app. No numbers, no guessing — just cats who
 want their personal space.
 
+> Contributors / agents: see [`AGENTS.md`](AGENTS.md) for project context,
+> deployment constraints and the decisions behind the current design.
+
 ## The rules
 
 The board is an **N×N grid split into N coloured regions**. Place one cat in
