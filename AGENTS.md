@@ -120,10 +120,14 @@ not an undo feature.)
 **Board sizes:** 5, 6, 7, 8, 9, 10 (search generator) and 12, 16, 20, 25
 (constructive generator). Valid sizes are listed in `init()` in `app.js`.
 
-**Big-board UI:** `--min-cell: 30px` makes `.board-stage` larger than the
-`.board-scroll` viewport; the floating **✋ Pan** FAB appears only when the
-board is actually scrollable. Pan mode uses native touch scrolling plus mouse
-drag panning and is view-only. ✕/🐱 tools still paint/place normally.
+**Big-board UI:** Big boards start at a 30px minimum cell size. Two-finger
+panning and pinch zoom work with either ✕/🐱 tool selected; zoom ranges from
+fitting the board to 3× its initial size. Resize `.board-stage`, not the page,
+so cells and SVG lines stay aligned and native scroll bounds match the zoom.
+Suppress cell input for the entire multi-touch gesture until all fingers lift.
+The floating **✋ Pan** FAB appears only when the board is actually scrollable
+and provides view-only one-finger/mouse dragging. Pointer input handles pan
+and zoom with `touch-action: none`; do not enable native touch scrolling.
 **Never put a `transform` on `.board-wrap`** — it becomes the containing block
 for the `position: fixed` full-screen overlay. Shake uses `.board-scroll`.
 
@@ -138,6 +142,7 @@ node test/final.js 40     # small boards: uniqueness, logic, connectivity, rules
 node test/big2.js         # big boards 11..30: chain proof, logic, connectivity
 node test/bench.js        # engine sanity + generation benchmark
 node test/stats.js        # difficulty / region-size distribution
+node test/gestures.js     # pointer input, pinch zoom and pan regressions
 node tools/make-icons.js  # regenerate PNG icons
 ```
 

@@ -28,9 +28,11 @@ means *cats in consecutive rows must be at least two columns apart*.)
   reachable by pure deduction from an empty board — no guessing required.
 - Ten board sizes: 5×5 Kitten → 10×10 Legend, then the big boards
   **12×12 Estate, 16×16 Kingdom, 20×20 Empire and 25×25 Cosmos**. Big boards
-  keep a comfortable minimum cell size and become scrollable: the floating
-  **✋ Pan** button (shown only when needed) lets you drag around, while the ✕
-  and 🐱 tools still paint and place normally.
+  start with a comfortable cell size: **use two fingers to pan and pinch to
+  zoom**, from fitting the whole board to a close-up, without leaving the ✕
+  or 🐱 tool. One finger still marks, paints or places cats. The floating
+  **✋ Pan** button (shown only when needed) remains available for one-finger
+  or mouse dragging. New puzzles reset the zoom.
 - ✕ marks with **tap, drag-to-paint, and drag-to-erase**; double-tap or the 🐱
   tool to place a cat; tap a cat to remove it.
 - Optional **✕ Auto** toggle: when a cat lands, every square its row, column,
