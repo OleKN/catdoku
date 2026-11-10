@@ -25,6 +25,7 @@
   var board = document.getElementById('board');
   var boardWrap = document.querySelector('.board-wrap');
   var boardScroll = document.getElementById('boardScroll');
+  var boardStage = document.querySelector('.board-stage');
   var regionLines = document.getElementById('regionLines');
   var overlay = document.getElementById('overlay');
   var reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -77,6 +78,9 @@
   var worker = null;
   var generationId = 0;
   var toastTimer = null;
+  var touches = new Map();
+  var gesture = null;
+  var boardZoom = 1;
 
   // ------------------------------------------------------------- storage
 
@@ -378,9 +382,10 @@
     var p = state.puzzle;
     var n = p.n;
     boardWrap.style.setProperty('--n', n);
-    // Big boards get a minimum cell size and become scrollable; small ones
-    // simply fill the available square.
-    boardWrap.style.setProperty('--min-cell', n > 10 ? '30px' : '0px');
+    boardZoom = 1;
+    updateBoardSize();
+    boardScroll.scrollLeft = 0;
+    boardScroll.scrollTop = 0;
     board.innerHTML = '';
     var frag = document.createDocumentFragment();
     for (var r = 0; r < n; r++) {
@@ -409,6 +414,19 @@
                      boardScroll.scrollHeight > boardScroll.clientHeight + 1;
     toolPanBtn.hidden = !scrollable;
     if (!scrollable && state.tool === 'pan') setTool('x');
+  }
+
+  function updateBoardSize() {
+    var rect = boardScroll.getBoundingClientRect();
+    // Scrollbars must not change the zoom baseline as the board grows/shrinks.
+    var viewport = Math.floor(Math.min(rect.width, rect.height));
+    var base = state.size > 10 ? Math.max(viewport, state.size * 30) : viewport;
+    boardZoom = state.size > 10 ? Math.max(viewport / base, Math.min(3, boardZoom)) : 1;
+    var side = base * boardZoom;
+    boardStage.style.width = side + 'px';
+    boardStage.style.height = side + 'px';
+    updatePanButton();
+    return side;
   }
 
   // Region outlines are drawn as one SVG path: crisp, seamless corners, and
@@ -574,6 +592,7 @@
         '</ul>' +
         '<p class="rules-note">Optional: switch on <strong>✕ Auto</strong> below the board to have impossible squares crossed out for you whenever a cat lands.</p>' +
         '<p class="rules-note">Every win earns XP: 40 for a quick solve, 25 for a steady solve, 20 for a slow solve. Every 100 XP earns a level. Quick wins raise logic complexity, then board size; slow wins ease the challenge. You can still choose any size.</p>' +
+        '<p class="rules-note">Big boards: use two fingers to move and pinch to zoom, without changing tools. The ✋ Pan button also lets you drag with one finger or a mouse.</p>' +
         '<div class="overlay-actions"><button type="button" class="btn btn--accent" data-action="close">Got it</button></div>' +
         '</div>';
     }
@@ -599,6 +618,7 @@
   }
 
   function showOverlay(kind, data) {
+    resetPointerInput();
     overlay.hidden = false;
     overlay.dataset.kind = kind;
     overlay.innerHTML = overlayHTML(kind, data);
@@ -753,13 +773,67 @@
     state.autoMarks.delete(i);   // a hand-edited ✕ is now the player's own
   }
 
+  function resetPointerInput() {
+    state.drag = null;
+    state.lastTap = null;
+    gesture = null;
+    touches.forEach(function (point, id) {
+      if (boardScroll.hasPointerCapture(id)) boardScroll.releasePointerCapture(id);
+    });
+    touches.clear();
+  }
+
+  function touchPair() {
+    var points = Array.from(touches.values());
+    return {
+      x: (points[0].x + points[1].x) / 2,
+      y: (points[0].y + points[1].y) / 2,
+      distance: Math.max(1, Math.hypot(points[1].x - points[0].x, points[1].y - points[0].y))
+    };
+  }
+
+  function beginGesture() {
+    var pair = touchPair();
+    var rect = boardScroll.getBoundingClientRect();
+    gesture = {
+      distance: pair.distance,
+      zoom: boardZoom,
+      side: boardStage.offsetWidth,
+      x: boardScroll.scrollLeft + pair.x - rect.left,
+      y: boardScroll.scrollTop + pair.y - rect.top
+    };
+    state.drag = null;
+    state.lastTap = null;
+  }
+
+  function moveGesture() {
+    if (touches.size < 2) return;
+    var pair = touchPair();
+    var rect = boardScroll.getBoundingClientRect();
+    boardZoom = gesture.zoom * pair.distance / gesture.distance;
+    var side = updateBoardSize();
+    boardScroll.scrollLeft = gesture.x * side / gesture.side - (pair.x - rect.left);
+    boardScroll.scrollTop = gesture.y * side / gesture.side - (pair.y - rect.top);
+  }
+
   function onPointerDown(e) {
     if (!canInteract()) return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    if (e.pointerType === 'touch') {
+      touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      boardScroll.setPointerCapture(e.pointerId);
+      if (state.size > 10 && touches.size >= 2) {
+        e.preventDefault();
+        beginGesture();
+        return;
+      }
+      if (gesture || touches.size > 1) return;
+    }
+    if (state.drag) return;
     var cell = e.target.closest ? e.target.closest('.cell') : null;
     if (!cell) return;
     var i = Number(cell.dataset.i);
-    var panning = state.tool === 'pan';
-    if (!panning) e.preventDefault();
+    e.preventDefault();
     state.drag = {
       id: e.pointerId,
       startX: e.clientX,
@@ -770,31 +844,32 @@
       active: false,
       paintValue: MARK
     };
-    // In pan mode the browser needs the gesture for native scrolling, so no
-    // pointer capture (and no preventDefault) — a cancelled drag never marks.
-    if (!panning) {
-      try { board.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
-    }
+    boardScroll.setPointerCapture(e.pointerId);
   }
 
   function onPointerMove(e) {
+    if (touches.has(e.pointerId)) {
+      touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (gesture) {
+        e.preventDefault();
+        moveGesture();
+        return;
+      }
+    }
     var d = state.drag;
     if (!d || d.id !== e.pointerId) return;
     if (state.tool === 'pan') {
-      // Touch scrolling is native; add drag-to-pan for mouse users.
-      if (e.pointerType === 'mouse') {
-        if (!d.active) {
-          if (Math.hypot(e.clientX - d.startX, e.clientY - d.startY) < 4) return;
-          d.active = true;
-          state.lastTap = null;
-          d.panX = d.startX;
-          d.panY = d.startY;
-        }
-        boardScroll.scrollLeft -= e.clientX - d.panX;
-        boardScroll.scrollTop -= e.clientY - d.panY;
-        d.panX = e.clientX;
-        d.panY = e.clientY;
+      if (!d.active) {
+        if (Math.hypot(e.clientX - d.startX, e.clientY - d.startY) < 4) return;
+        d.active = true;
+        state.lastTap = null;
+        d.panX = d.startX;
+        d.panY = d.startY;
       }
+      boardScroll.scrollLeft -= e.clientX - d.panX;
+      boardScroll.scrollTop -= e.clientY - d.panY;
+      d.panX = e.clientX;
+      d.panY = e.clientY;
       return;
     }
     if (!d.active) {
@@ -817,15 +892,27 @@
   }
 
   function onPointerUp(e) {
+    touches.delete(e.pointerId);
+    if (gesture) {
+      if (touches.size >= 2) beginGesture();
+      else if (!touches.size) gesture = null;
+      if (boardScroll.hasPointerCapture(e.pointerId)) boardScroll.releasePointerCapture(e.pointerId);
+      return;
+    }
     var d = state.drag;
     if (!d || d.id !== e.pointerId) return;
     state.drag = null;
-    try { board.releasePointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+    if (boardScroll.hasPointerCapture(e.pointerId)) boardScroll.releasePointerCapture(e.pointerId);
     if (!d.active) handleTap(d.startIndex);
   }
 
   function onPointerCancel(e) {
+    if (!touches.has(e.pointerId) && (!state.drag || state.drag.id !== e.pointerId)) return;
+    touches.delete(e.pointerId);
+    if (gesture && touches.size >= 2) beginGesture();
+    else if (!touches.size) gesture = null;
     if (state.drag && state.drag.id === e.pointerId) state.drag = null;
+    state.lastTap = null;
   }
 
   function onKeyDown(e) {
@@ -888,7 +975,7 @@
       storeSet('mewdoku.seen', '1');
       showOverlay('rules');
     } else if (p.n > 10 && overlay.hidden) {
-      toast('Big board! Drag with ✋ Pan to move around.');
+      toast('Big board! Use two fingers to move and pinch to zoom.');
     }
   }
 
@@ -987,10 +1074,11 @@
   }
 
   function bindEvents() {
-    board.addEventListener('pointerdown', onPointerDown);
-    board.addEventListener('pointermove', onPointerMove);
-    board.addEventListener('pointerup', onPointerUp);
-    board.addEventListener('pointercancel', onPointerCancel);
+    boardScroll.addEventListener('pointerdown', onPointerDown);
+    boardScroll.addEventListener('pointermove', onPointerMove);
+    boardScroll.addEventListener('pointerup', onPointerUp);
+    boardScroll.addEventListener('pointercancel', onPointerCancel);
+    boardScroll.addEventListener('lostpointercapture', onPointerCancel);
     board.addEventListener('keydown', onKeyDown);
     board.addEventListener('contextmenu', function (e) { e.preventDefault(); });
 
@@ -1023,7 +1111,10 @@
       showOverlay('rules');
     });
 
-    window.addEventListener('resize', updatePanButton);
+    window.addEventListener('resize', function () {
+      resetPointerInput();
+      updateBoardSize();
+    });
     document.addEventListener('visibilitychange', function () {
       if (document.hidden) pauseTimer();
       else resumeTimer();
