@@ -47,7 +47,7 @@ cat column in row `r`).
 - HTTPS is enforced and the certificate is issued. `<https://cat.bausk.no/>`
   serves all assets with correct MIME types.
 - `sw.js` is network-first with a cache fallback; cache name is
-  **`mewdoku-v10`**. Content updates propagate without a version bump, but
+  **`mewdoku-v11`**. Content updates propagate without a version bump, but
   **adding/removing an asset file requires updating `ASSETS` and bumping
   `CACHE`**.
 - No `gh` CLI and no `GITHUB_TOKEN` in this environment; `git push` works via
@@ -67,6 +67,7 @@ cat column in row `r`).
 | `puzzle.js` | Generator + exact solver + deduction engine (UMD: Node + browser) |
 | `worker.js` | Off-main-thread generation (`importScripts('puzzle.js')`) |
 | `app.js` | Game state, pointer/keyboard input, rendering, auto-mark, pan |
+| `progression.js` | Saved XP, levels, pace thresholds and adaptive tier/size policy |
 | `sw.js` | Offline caching |
 | `manifest.webmanifest` | Install metadata (`start_url`/`scope` are `./`) |
 | `icons/` | PNG icons + SVG favicon |
@@ -78,7 +79,8 @@ cat column in row `r`).
 - **n <= 10 (`generate`)**: random flood-filled regions → boundary-cell
   refinement hill climb until exactly one solution → `analyzeLogic` proves the
   board is solvable from empty by pure deduction → sample up to `quality`
-  candidates and keep the gentlest. This is the "no guessing" guarantee.
+  candidates and keep the gentlest by default (adaptive play ranks candidates
+  by logic complexity instead). This is the "no guessing" guarantee.
 - **n > 10 (`generateLarge`)**: the search above does **not** scale (the
   uniqueness hill climb and the exhaustive solver blow up past ~11×11; a 16×16
   attempt took minutes). Big boards use a **constructive** generator that builds
@@ -118,7 +120,14 @@ not an undo feature.)
 - Big boards up to **25×25** and a scrollable, pannable board.
 
 **Board sizes:** 5, 6, 7, 8, 9, 10 (search generator) and 12, 16, 20, 25
-(constructive generator). Valid sizes are listed in `init()` in `app.js`.
+(constructive generator). Valid sizes are listed in `progression.js`.
+
+**Progression:** wins earn pace-based XP (40 quick / 25 steady / 20 slow),
+100 XP per level. Adaptive tiers select among verified candidates by deduction
+effort and starting-territory sizes, without changing rules or removing the
+large-board chain proof. Fast Expert wins increase size; slow Gentle wins
+decrease it. The size picker remains a manual override. Progress is saved in
+`mewdoku.progress`; see README for thresholds and retry timing.
 
 **Big-board UI:** Big boards start at a 30px minimum cell size. Two-finger
 panning and pinch zoom work with either ✕/🐱 tool selected; zoom ranges from
@@ -142,6 +151,7 @@ node test/final.js 40     # small boards: uniqueness, logic, connectivity, rules
 node test/big2.js         # big boards 11..30: chain proof, logic, connectivity
 node test/bench.js        # engine sanity + generation benchmark
 node test/stats.js        # difficulty / region-size distribution
+node test/progression.js  # XP, adaptive tiers, ranked generation, UI/worker wiring
 node test/gestures.js     # pointer input, pinch zoom and pan regressions
 node tools/make-icons.js  # regenerate PNG icons
 ```

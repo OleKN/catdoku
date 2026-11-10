@@ -56,6 +56,15 @@
       </label>
     </header>
 
+    <section class="progression" aria-label="Player progression">
+      <div class="progression-heading" aria-live="polite">
+        <strong id="playerLevel">Level 1</strong>
+        <span id="playerXP">0 / 100 XP</span>
+      </div>
+      <progress id="xpProgress" max="100" value="0" aria-label="XP toward next level"></progress>
+      <p id="challengeInfo">Gentle · adaptive difficulty</p>
+    </section>
+
     <section class="status" aria-label="Game status">
       <div class="stat">
         <span class="stat-label">Lives</span>
@@ -116,6 +125,7 @@
 
   <noscript><p style="text-align:center;padding:2rem">Mewdoku needs JavaScript to build the puzzles.</p></noscript>
   <script src="puzzle.js"></script>
+  <script src="progression.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

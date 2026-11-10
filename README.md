@@ -42,6 +42,23 @@ means *cats in consecutive rows must be at least two columns apart*.)
 - **Three hearts** — a wrong cat costs one. Local rule violations get a
   "too close!" hint; guesses that lead to a dead end get a different one.
 - **Timer and best time per size**, saved in `localStorage`.
+- **Saved XP and levels**: start at level 1 and gain a level every 100 XP.
+  Each win earns 40 XP for a quick solve, 25 for a steady solve, or 20 for a
+  slow solve. XP and levels never decrease. Progress is local to this browser.
+- **Adaptive challenge** is on automatically. At the same board size, Gentle,
+  Steady, Tricky and Expert tiers rank up to six verified candidates by logical
+  elimination effort and how few small, obvious starting territories they have.
+  This is relative selection, not a guarantee that each board is harder than
+  the last. Large boards keep their fast constructive, deduction-only generator.
+  Quick wins raise the tier; a quick Expert win raises size one step and returns
+  to Steady. Slow wins lower the tier; a slow Gentle win lowers size one step
+  and returns to Steady. Size stays between 5×5 and 25×25, and the size picker
+  always lets you override it without losing XP.
+  The pace target is 2 seconds per square, multiplied by 1, 1.25, 1.6 or 2 for
+  each tier. Quick means at most 75% of that target; slow means at least 150%.
+  The quick threshold is shown above the board. Timing begins on the first move,
+  excludes hidden-tab and rules-screen time, and includes time spent on failed
+  attempts when retrying the same board so memorized retries do not boost rewards.
 - Keyboard support: arrows to move, Enter/Space to mark, `C` to place a cat.
 - **Motion design**: a drifting warm backdrop, a staggered wave when a board
   appears, ✕ marks that draw themselves, a warm halo + sparkle burst + light
@@ -65,6 +82,9 @@ python -m http.server 8000
 
 Then open <http://localhost:8000>. `localhost` counts as a secure context, so
 the service worker and home-screen install both work there for testing.
+
+Run `node test/progression.js` to check XP thresholds, adaptive tier/size bounds,
+candidate complexity ordering, puzzle rules, and UI/worker reward integration.
 
 ## Hosting on GitHub Pages
 
@@ -155,11 +175,14 @@ git push origin main
 4. **Prove it's fair** — a deduction engine solves the board from scratch using
    only forced singles, pointing claims, adjacency conflicts and
    proof-by-contradiction eliminations. If it stalls, the puzzle is rejected.
-5. **Pick the gentlest board** — up to three candidates are sampled and the one
-   needing the fewest "what-if" steps wins. Most puzzles need none at all.
+5. **Match the challenge** — the game samples up to six verified candidates and
+   selects by the player's adaptive logic tier. The engine's default (without a
+   difficulty tier) still picks the gentlest of up to three candidates.
 
-Generation is fast: ~1 ms for 5×5 and well under a second for 10×10, even on a
-phone. `worker.js` wraps all of this in a Web Worker.
+Small boards usually generate in milliseconds; sampling logic complexity near
+10×10 can take a few seconds and uses a nine-second search budget. Large boards
+retain their fast constructive generator. `worker.js` runs generation off the
+main thread.
 
 **Big boards (12×12 and up)** use a different, constructive generator. The
 search above stops scaling past ~11×11 (both the uniqueness hill-climb and the

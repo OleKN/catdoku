@@ -45,6 +45,7 @@ for (let i = 0; i < 625; i++) {
 }
 let hitCell = board.children[1];
 const context = vm.createContext({
+  MewdokuProgression: require('../progression.js'),
   document: {
     getElementById: getElement, querySelector: getElement,
     elementFromPoint: () => hitCell
