@@ -40,6 +40,12 @@
   var autoMarkBtn = document.getElementById('autoMark');
   var newPuzzleBtn = document.getElementById('newPuzzle');
   var rulesBtn = document.getElementById('rulesBtn');
+  var Progression = MewdokuProgression;
+  var profile = { xp: 0, tier: 0, size: 5 };
+  var playerLevelEl = document.getElementById('playerLevel');
+  var playerXPEl = document.getElementById('playerXP');
+  var xpProgressEl = document.getElementById('xpProgress');
+  var challengeInfoEl = document.getElementById('challengeInfo');
 
   var state = {
     size: 5,
@@ -63,6 +69,8 @@
     pauseStart: 0,
     timerId: null,
     pendingSeed: 0,
+    challengeTier: 0,
+    retryElapsed: 0,
     showRulesOnStart: false
   };
 
@@ -76,7 +84,29 @@
     try { return localStorage.getItem(key); } catch (e) { return null; }
   }
   function storeSet(key, value) {
-    try { localStorage.setItem(key, value); } catch (e) { /* private mode */ }
+    try { localStorage.setItem(key, value); return true; } catch (e) { return false; }
+  }
+  function saveProfile() {
+    if (!storeSet('mewdoku.progress', JSON.stringify(profile))) {
+      console.warn('Mewdoku: progress could not be saved to local storage.');
+      toast('Progress is only available this session: storage is unavailable.');
+    }
+  }
+  function loadProfile() {
+    var raw = storeGet('mewdoku.progress');
+    if (raw === null) return;
+    var saved;
+    try { saved = JSON.parse(raw); } catch (err) {
+      if (!(err instanceof SyntaxError)) throw err;
+      console.warn('Mewdoku: saved progress is not valid JSON.', err);
+      toast('Saved progress could not be read. Starting fresh.');
+      return;
+    }
+    if (Progression.valid(saved)) profile = { xp: saved.xp, tier: saved.tier, size: saved.size };
+    else {
+      console.warn('Mewdoku: saved progress has invalid values.');
+      toast('Saved progress could not be read. Starting fresh.');
+    }
   }
   function bestKey(n) { return 'mewdoku.best.' + n; }
   function getBest(n) {
@@ -437,6 +467,16 @@
     bestEl.textContent = best === null ? '—' : formatTime(best);
   }
 
+  function renderProgression() {
+    var xp = profile.xp % Progression.xpPerLevel;
+    playerLevelEl.textContent = 'Level ' + Progression.level(profile.xp);
+    playerXPEl.textContent = xp + ' / ' + Progression.xpPerLevel + ' XP';
+    xpProgressEl.value = xp;
+    challengeInfoEl.textContent = Progression.tiers[state.challengeTier] +
+      ' · adaptive difficulty · quick: ' +
+      formatTime(Progression.targetTime(state.size, state.challengeTier) * .75);
+  }
+
   // --------------------------------------------------------------- timer
 
   function startTimer() {
@@ -460,13 +500,13 @@
     if (state.running && !state.paused) { state.paused = true; state.pauseStart = Date.now(); }
   }
   function resumeTimer() {
-    if (state.running && state.paused) {
+    if (state.running && state.paused && !document.hidden && overlay.hidden) {
       state.startTime += Date.now() - state.pauseStart;
       state.paused = false;
     }
   }
   function stopTimer() {
-    if (state.running) state.elapsed = Date.now() - state.startTime;
+    if (state.running) state.elapsed = (state.paused ? state.pauseStart : Date.now()) - state.startTime;
     state.running = false;
     state.paused = false;
     timerEl.classList.remove('is-running');
@@ -498,7 +538,13 @@
         '<p>All ' + data.n + ' cats have their own cosy territory.</p>' +
         '<div class="result-time">' + formatTime(data.time) + '</div>' +
         '<div class="result-best">' + (data.isNewBest ? '<strong>✨ New best time!</strong>' : 'Best ' + formatTime(data.best)) + '</div>' +
-        '<div class="overlay-actions"><button type="button" class="btn btn--accent" data-action="new">Play again</button></div>' +
+        '<div class="result-progress"><strong>+' + data.reward.earned + ' XP' +
+        (data.reward.pace === 'fast' ? ' · Quick-paw bonus!' : '') + '</strong>' +
+        '<p>' + (data.reward.leveledUp ? 'Level up! ' : '') + 'Level ' + Progression.level(profile.xp) +
+        ' · ' + (profile.xp % Progression.xpPerLevel) + ' / ' + Progression.xpPerLevel + ' XP</p>' +
+        '<p>' + (data.reward.pace === 'slow' ? 'A gentler pace next time. ' : '') +
+        'Next: ' + Progression.tiers[profile.tier] + ' · ' + profile.size + '×' + profile.size + '</p></div>' +
+        '<div class="overlay-actions"><button type="button" class="btn btn--accent" data-action="new">Next puzzle</button></div>' +
         '</div>';
     }
     if (kind === 'lose') {
@@ -527,6 +573,7 @@
         '<li><span class="num">4</span><span>Tap for ✕, drag to paint ✕ marks, double-tap (or pick the 🐱 tool) to place a cat. A wrong cat costs a heart.</span></li>' +
         '</ul>' +
         '<p class="rules-note">Optional: switch on <strong>✕ Auto</strong> below the board to have impossible squares crossed out for you whenever a cat lands.</p>' +
+        '<p class="rules-note">Every win earns XP: 40 for a quick solve, 25 for a steady solve, 20 for a slow solve. Every 100 XP earns a level. Quick wins raise logic complexity, then board size; slow wins ease the challenge. You can still choose any size.</p>' +
         '<div class="overlay-actions"><button type="button" class="btn btn--accent" data-action="close">Got it</button></div>' +
         '</div>';
     }
@@ -607,6 +654,7 @@
     toast(conflict ? 'Too close! Cats need their personal space.' : 'Not quite — that spot leads to a dead end.');
     if (state.hearts <= 0) {
       stopTimer();
+      state.retryElapsed += state.elapsed;
       state.finished = true;
       showOverlay('lose');
     }
@@ -636,6 +684,7 @@
   }
 
   function checkWin() {
+    if (state.finished) return;
     if (state.catsPlaced !== state.puzzle.n) return;
     for (var i = 0; i < state.cells.length; i++) {
       if ((state.cells[i] === CAT) !== state.solutionSet.has(i)) return;
@@ -645,12 +694,19 @@
     boardWrap.classList.add('is-won');
     bump(bestEl);
     var isNew = saveBest(state.size, state.elapsed);
+    var reward = Progression.complete({
+      xp: profile.xp, tier: state.challengeTier, size: state.puzzle.n
+    }, state.retryElapsed + state.elapsed);
+    profile = reward.profile;
+    saveProfile();
+    renderProgression();
     renderBest();
     showOverlay('win', {
       n: state.puzzle.n,
       time: state.elapsed,
       best: getBest(state.size),
-      isNewBest: isNew
+      isNewBest: isNew,
+      reward: reward
     });
   }
 
@@ -848,7 +904,8 @@
         if (id !== generationId) return;
         var p = Mewdoku.generate(n, {
           rng: Mewdoku.mulberry32(seed),
-          quality: 3,
+          quality: 6,
+          difficulty: state.challengeTier,
           timeBudgetMs: 9000
         });
         if (id !== generationId) return;
@@ -880,6 +937,12 @@
 
   function requestPuzzle(n) {
     state.size = n;
+    state.challengeTier = profile.tier;
+    state.retryElapsed = 0;
+    profile.size = n;
+    difficultyEl.value = String(n);
+    saveProfile();
+    renderProgression();
     state.puzzle = null;
     state.finished = true;
     state.lastTap = null;
@@ -890,7 +953,7 @@
     generationId++;
     var seed = (Date.now() ^ Math.floor(Math.random() * 0x7fffffff)) >>> 0;
     state.pendingSeed = seed;
-    if (worker) worker.postMessage({ id: generationId, n: n, seed: seed });
+    if (worker) worker.postMessage({ id: generationId, n: n, seed: seed, difficulty: state.challengeTier });
     else generateOnMainThread(n, generationId, seed);
   }
 
@@ -949,10 +1012,9 @@
         ? 'Auto-✕ on — impossible squares are crossed out for you.'
         : 'Auto-✕ off — mark the squares yourself.');
     });
-    newPuzzleBtn.addEventListener('click', function () { requestPuzzle(state.size); });
+    newPuzzleBtn.addEventListener('click', function () { requestPuzzle(profile.size); });
     difficultyEl.addEventListener('change', function () {
       var n = Number(difficultyEl.value);
-      storeSet('mewdoku.size', String(n));
       requestPuzzle(n);
     });
     rulesBtn.addEventListener('click', function () {
@@ -962,12 +1024,16 @@
     });
 
     window.addEventListener('resize', updatePanButton);
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) pauseTimer();
+      else resumeTimer();
+    });
 
     overlay.addEventListener('click', function (e) {
       var btn = e.target.closest ? e.target.closest('[data-action]') : null;
       if (!btn) return;
       var action = btn.dataset.action;
-      if (action === 'new') requestPuzzle(state.size);
+      if (action === 'new') requestPuzzle(profile.size);
       else if (action === 'retry') { hideOverlay(); restartSame(); }
       else if (action === 'close') { hideOverlay(); resumeTimer(); }
     });
@@ -982,8 +1048,9 @@
 
   function init() {
     var saved = Number(storeGet('mewdoku.size'));
-    var validSizes = [5, 6, 7, 8, 9, 10, 12, 16, 20, 25];
-    state.size = validSizes.indexOf(saved) >= 0 ? saved : 5;
+    profile.size = Progression.sizes.indexOf(saved) >= 0 ? saved : 5;
+    loadProfile();
+    state.size = profile.size;
     difficultyEl.value = String(state.size);
     state.showRulesOnStart = !storeGet('mewdoku.seen');
     state.autoMarkEnabled = storeGet('mewdoku.autoMark') === '1';

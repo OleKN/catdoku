@@ -6,7 +6,8 @@ self.onmessage = function (e) {
   var rng = Mewdoku.mulberry32(d.seed >>> 0);
   var puzzle = Mewdoku.generate(d.n, {
     rng: rng,
-    quality: 3,
+    quality: 6,
+    difficulty: d.difficulty,
     timeBudgetMs: 9000
   });
   self.postMessage({ id: d.id, puzzle: puzzle });

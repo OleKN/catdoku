@@ -1,10 +1,11 @@
 /* Cache-first service worker: Mewdoku works fully offline once installed. */
-var CACHE = 'mewdoku-v10';
+var CACHE = 'mewdoku-v11';
 var ASSETS = [
   './',
   './index.html',
   './styles.css',
   './puzzle.js',
+  './progression.js',
   './app.js',
   './worker.js',
   './manifest.webmanifest',

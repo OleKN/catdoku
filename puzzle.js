@@ -828,6 +828,8 @@
     var rng = options.rng || Math.random;
     var attempts = options.maxAttempts || 12;
     var deadline = Date.now() + (options.timeBudgetMs || 8000);
+    var candidates = [];
+    var quality = Math.max(1, Math.min(8, options.quality || 3));
 
     for (var a = 1; a <= attempts; a++) {
       if (Date.now() > deadline) break;
@@ -840,7 +842,7 @@
       if (!verifyChain(n, regions, solution)) continue;
       var stats = analyzeLogic(n, regions, solution, true);
       if (!stats.ok) continue;
-      return {
+      var puzzle = {
         n: n,
         regions: Array.from(regions),
         solution: solution.slice(),
@@ -848,11 +850,30 @@
         stats: stats,
         constructed: true
       };
+      if (options.difficulty === undefined) return puzzle;
+      candidates.push(puzzle);
+      if (candidates.length >= quality) break;
     }
-    return null;
+    return selectDifficulty(candidates, options.difficulty);
   }
 
   // ------------------------------------------------------------- generation
+
+  function difficultyScore(puzzle) {
+    var counts = new Int32Array(puzzle.n);
+    for (var i = 0; i < puzzle.regions.length; i++) counts[puzzle.regions[i]]++;
+    // Fewer small territories mean fewer obvious starting cats, even on
+    // constructive boards that never need trial elimination.
+    var openings = 0;
+    for (var k = 0; k < counts.length; k++) openings += 1 / counts[k];
+    return puzzle.stats.rounds * 1000 + puzzle.stats.trials * 10 - openings;
+  }
+
+  function selectDifficulty(candidates, tier) {
+    if (!candidates.length) return null;
+    candidates.sort(function (a, b) { return difficultyScore(a) - difficultyScore(b); });
+    return candidates[Math.round(tier / 3 * (candidates.length - 1))];
+  }
 
   /**
    * Generate a puzzle of size n with a unique, deductively solvable answer.
@@ -863,10 +884,15 @@
    *   rng            - random source (default Math.random)
    *   quality        - sample this many valid puzzles, keep the easiest (1..8)
    *   maxTrials      - reject puzzles needing more "what-if" eliminations
+   *   difficulty     - optional tier 0..3, rank valid candidates by complexity
    *   timeBudgetMs   - hard stop for the search
    */
   function generate(n, options) {
     options = options || {};
+    if (options.difficulty !== undefined &&
+        (!Number.isInteger(options.difficulty) || options.difficulty < 0 || options.difficulty > 3)) {
+      throw new Error('Difficulty must be an integer from 0 to 3');
+    }
     // The search-based generator is tuned for the small boards; beyond 10x10
     // it becomes impractical, so switch to the constructive chain builder.
     if (n > 10 && !options.forceSearch) return generateLarge(n, options);
@@ -878,6 +904,7 @@
     var deadline = Date.now() + timeBudget;
     var best = null;
     var found = 0;
+    var candidates = [];
 
     for (var attempt = 1; attempt <= maxAttempts; attempt++) {
       if (Date.now() > deadline) break;
@@ -904,6 +931,11 @@
         stats: stats
       };
       found++;
+      if (options.difficulty !== undefined) {
+        candidates.push(puzzle);
+        if (found >= quality) break;
+        continue;
+      }
       // A board solved purely by singles/pointing is the gentlest kind.
       if (stats.rounds === 0) return puzzle;
       if (!best || stats.rounds < best.stats.rounds ||
@@ -912,7 +944,7 @@
       }
       if (found >= quality) break;
     }
-    return best;
+    return options.difficulty === undefined ? best : selectDifficulty(candidates, options.difficulty);
   }
 
   // Sanity check: N connected regions, each holding exactly one cat.
@@ -942,6 +974,7 @@
     constructRegions: constructRegions,
     refineRegions: refineRegions,
     solutionCells: solutionCells,
+    difficultyScore: difficultyScore,
     mulberry32: mulberry32,
     _internals: {
       randomSolution: randomSolution,
